@@ -4,14 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx src/index.ts",
+    "workflow:invoiceplane": "tsx src/index.ts",
+    "workflow:invoiceplane:stream": "tsx src/stream.ts",
+    "serve:local": "tsx src/http/server.ts",
+    "smoke": "tsx src/smoke.ts",
+    "smoke:stream": "tsx src/smoke-stream.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
-    "dotenv": "^17.3.1"
+    "@tiny-fish/sdk": "^0.0.5",
+    "dotenv": "^17.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
