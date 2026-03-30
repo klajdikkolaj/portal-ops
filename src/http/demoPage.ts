@@ -19,6 +19,7 @@ export function renderDemoPage(): string {
         --accent-strong: #0c5660;
         --success: #25704c;
         --danger: #a23d34;
+        --warning: #a06814;
         --shadow: 0 24px 80px rgba(68, 49, 25, 0.12);
       }
 
@@ -38,7 +39,7 @@ export function renderDemoPage(): string {
       }
 
       .shell {
-        width: min(1080px, calc(100vw - 32px));
+        width: min(1160px, calc(100vw - 32px));
         margin: 0 auto;
         padding: 32px 0 40px;
       }
@@ -66,6 +67,13 @@ export function renderDemoPage(): string {
         pointer-events: none;
       }
 
+      .hero-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.95fr);
+        align-items: end;
+      }
+
       .kicker {
         margin: 0 0 10px;
         font-size: 12px;
@@ -75,7 +83,7 @@ export function renderDemoPage(): string {
       }
 
       h1 {
-        max-width: 10ch;
+        max-width: 11ch;
         margin: 0;
         font-size: clamp(3rem, 8vw, 5.8rem);
         line-height: 0.92;
@@ -83,18 +91,11 @@ export function renderDemoPage(): string {
       }
 
       .hero-copy {
-        max-width: 540px;
+        max-width: 620px;
         margin-top: 18px;
         font-size: 18px;
         line-height: 1.5;
         color: var(--muted);
-      }
-
-      .hero-grid {
-        display: grid;
-        gap: 24px;
-        grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.95fr);
-        align-items: end;
       }
 
       .control-panel {
@@ -127,6 +128,35 @@ export function renderDemoPage(): string {
         align-items: center;
       }
 
+      .filter-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .field input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 12px 14px;
+        font: inherit;
+        color: var(--text);
+      }
+
       button {
         border: 0;
         border-radius: 999px;
@@ -155,16 +185,10 @@ export function renderDemoPage(): string {
         box-shadow: none;
       }
 
-      .hint {
-        margin: 0;
-        font-size: 14px;
-        line-height: 1.5;
-        color: var(--muted);
-      }
-
+      .hint,
       .value-line {
         margin: 0;
-        font-size: 15px;
+        font-size: 14px;
         line-height: 1.5;
         color: var(--muted);
       }
@@ -213,7 +237,7 @@ export function renderDemoPage(): string {
       .summary-grid {
         display: grid;
         gap: 14px;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
       }
 
       .stat {
@@ -231,8 +255,8 @@ export function renderDemoPage(): string {
 
       .stat-value {
         margin: 0;
-        font-size: 16px;
-        line-height: 1.35;
+        font-size: 15px;
+        line-height: 1.4;
         word-break: break-word;
       }
 
@@ -241,27 +265,31 @@ export function renderDemoPage(): string {
         gap: 12px;
       }
 
-      .timeline-item {
+      .timeline-item,
+      .target-card {
         display: grid;
         gap: 6px;
         padding-top: 12px;
         border-top: 1px solid var(--line);
       }
 
-      .timeline-top {
+      .timeline-top,
+      .target-top {
         display: flex;
         justify-content: space-between;
         gap: 12px;
         align-items: baseline;
       }
 
-      .timeline-label {
+      .timeline-label,
+      .target-title {
         margin: 0;
         font-size: 15px;
         line-height: 1.4;
       }
 
-      .timeline-time {
+      .timeline-time,
+      .target-status {
         margin: 0;
         font-size: 12px;
         letter-spacing: 0.1em;
@@ -270,12 +298,41 @@ export function renderDemoPage(): string {
         white-space: nowrap;
       }
 
-      .timeline-detail {
+      .timeline-detail,
+      .target-detail {
         margin: 0;
         font-size: 13px;
         line-height: 1.5;
         color: var(--muted);
         word-break: break-word;
+      }
+
+      .target-status[data-state="ok"] {
+        color: var(--success);
+      }
+
+      .target-status[data-state="error"] {
+        color: var(--danger);
+      }
+
+      .target-status[data-state="mixed"] {
+        color: var(--warning);
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .badge {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(15, 108, 120, 0.08);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
       }
 
       .invoice-table {
@@ -299,8 +356,29 @@ export function renderDemoPage(): string {
         color: var(--muted);
       }
 
-      .invoice-table tbody tr:last-child td {
-        border-bottom: 0;
+      .pill {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .pill[data-change="new"] {
+        background: rgba(37, 112, 76, 0.12);
+        color: var(--success);
+      }
+
+      .pill[data-change="changed"] {
+        background: rgba(160, 104, 20, 0.12);
+        color: var(--warning);
+      }
+
+      .pill[data-change="unchanged"] {
+        background: rgba(15, 108, 120, 0.08);
+        color: var(--accent);
       }
 
       pre {
@@ -331,13 +409,13 @@ export function renderDemoPage(): string {
         color: var(--accent);
       }
 
-      @media (max-width: 840px) {
+      @media (max-width: 980px) {
         .hero-grid {
           grid-template-columns: 1fr;
         }
 
         .summary-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         h1 {
@@ -345,9 +423,9 @@ export function renderDemoPage(): string {
         }
       }
 
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .shell {
-          width: min(100vw - 20px, 1080px);
+          width: min(100vw - 20px, 1160px);
           padding-top: 20px;
         }
 
@@ -359,6 +437,10 @@ export function renderDemoPage(): string {
         }
 
         .summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .filter-grid {
           grid-template-columns: 1fr;
         }
 
@@ -375,24 +457,43 @@ export function renderDemoPage(): string {
         <div class="hero-grid">
           <div>
             <p class="kicker">PortalOps Local Demo</p>
-            <h1>Invoice workflow, one click.</h1>
+            <h1>Daily portal checks, one run.</h1>
             <p class="hero-copy">
-              This page calls the local PortalOps endpoint, runs the authenticated InvoicePlane workflow through TinyFish,
-              and renders the normalized result without any extra app shell around it.
+              This page runs the local PortalOps portfolio workflow, checks configured invoice portals through TinyFish,
+              compares the result with the previous snapshot, and turns the output into an ops-ready summary.
             </p>
           </div>
           <aside class="control-panel">
-            <span class="endpoint">GET /local/workflows/invoiceplane/stream</span>
+            <span class="endpoint">GET /local/workflows/portfolio/stream or /local/workflows/efiskalizimi/stream</span>
             <div class="controls">
-              <button id="runButton" type="button">Fetch Recent Invoices</button>
+              <button id="runPortfolioButton" type="button">Run Daily Check</button>
+              <button id="runEfiskalizimiButton" type="button">Run eFiskalizimi</button>
               <button id="copyButton" class="ghost-button" type="button" disabled>Copy JSON</button>
               <button id="csvButton" class="ghost-button" type="button" disabled>Download CSV</button>
             </div>
+            <div class="filter-grid">
+              <div class="field">
+                <label for="efiskDateFrom">eFisk From</label>
+                <input id="efiskDateFrom" type="text" inputmode="numeric" placeholder="DD.MM.YYYY" />
+              </div>
+              <div class="field">
+                <label for="efiskDateTo">eFisk To</label>
+                <input id="efiskDateTo" type="text" inputmode="numeric" placeholder="DD.MM.YYYY" />
+              </div>
+              <div class="field">
+                <label for="efiskCounterparty">Counterparty</label>
+                <input id="efiskCounterparty" type="text" placeholder="Optional name filter" />
+              </div>
+              <div class="field">
+                <label for="efiskResultLimit">Result Limit</label>
+                <input id="efiskResultLimit" type="text" inputmode="numeric" value="5" />
+              </div>
+            </div>
             <p class="hint">
-              The page stays deliberately small: one action, one workflow, one normalized result.
+              Use the portfolio button for all configured targets, or run eFiskalizimi directly with optional date and counterparty filters.
             </p>
             <p id="statusLine" class="status-line" data-state="idle">Idle.</p>
-            <p id="valueLine" class="value-line">Run the workflow to see how quickly authenticated invoice data becomes usable.</p>
+            <p id="valueLine" class="value-line">Run the portfolio workflow to see which invoice records are new, changed, or unchanged.</p>
           </aside>
         </div>
       </section>
@@ -400,22 +501,30 @@ export function renderDemoPage(): string {
       <section class="content">
         <section class="panel">
           <p class="section-label">Summary</p>
-          <div id="summaryGrid" class="summary-grid">
+          <div class="summary-grid">
             <div class="stat">
               <p class="stat-label">Status</p>
-              <p id="summaryOk" class="stat-value">Idle</p>
+              <p id="summaryStatus" class="stat-value">Idle</p>
             </div>
             <div class="stat">
-              <p class="stat-label">Run ID</p>
-              <p id="summaryRunId" class="stat-value">Waiting for first run</p>
+              <p class="stat-label">Targets</p>
+              <p id="summaryTargets" class="stat-value">0 checked</p>
             </div>
             <div class="stat">
-              <p class="stat-label">Finished At</p>
-              <p id="summaryFinishedAt" class="stat-value">Waiting for first run</p>
+              <p class="stat-label">Invoices</p>
+              <p id="summaryInvoices" class="stat-value">0</p>
             </div>
             <div class="stat">
-              <p class="stat-label">Invoice Count</p>
-              <p id="summaryCount" class="stat-value">0</p>
+              <p class="stat-label">New</p>
+              <p id="summaryNew" class="stat-value">0</p>
+            </div>
+            <div class="stat">
+              <p class="stat-label">Changed</p>
+              <p id="summaryChanged" class="stat-value">0</p>
+            </div>
+            <div class="stat">
+              <p class="stat-label">CSV Artifact</p>
+              <p id="summaryCsv" class="stat-value">Waiting for first run</p>
             </div>
           </div>
         </section>
@@ -428,9 +537,16 @@ export function renderDemoPage(): string {
         </section>
 
         <section class="panel">
+          <p class="section-label">Targets</p>
+          <div id="targetsWrap">
+            <p class="empty">No target results yet.</p>
+          </div>
+        </section>
+
+        <section class="panel">
           <p class="section-label">Invoices</p>
           <div id="tableWrap">
-            <p class="empty">No result yet.</p>
+            <p class="empty">No invoices yet.</p>
           </div>
         </section>
 
@@ -443,10 +559,21 @@ export function renderDemoPage(): string {
   "runId": "...",
   "finishedAt": "...",
   "result": {
-    "portal": "invoiceplane-demo",
-    "source_url": "https://demo.invoiceplane.com/invoices/index",
-    "invoice_count": 5,
-    "invoices": []
+    "portfolio": "portal-ops-ap",
+    "target_count": 1,
+    "successful_target_count": 1,
+    "failed_target_count": 0,
+    "total_invoice_count": 5,
+    "total_new_invoice_count": 5,
+    "total_changed_invoice_count": 0,
+    "total_unchanged_invoice_count": 0,
+    "summary_text": "Checked 1 targets.",
+    "artifacts": {
+      "csv_path": "...",
+      "snapshot_dir": "..."
+    },
+    "invoices": [],
+    "targets": []
   }
 }</pre>
           </details>
@@ -455,16 +582,24 @@ export function renderDemoPage(): string {
     </main>
 
     <script>
-      const runButton = document.getElementById("runButton");
+      const runPortfolioButton = document.getElementById("runPortfolioButton");
+      const runEfiskalizimiButton = document.getElementById("runEfiskalizimiButton");
       const copyButton = document.getElementById("copyButton");
       const csvButton = document.getElementById("csvButton");
+      const efiskDateFrom = document.getElementById("efiskDateFrom");
+      const efiskDateTo = document.getElementById("efiskDateTo");
+      const efiskCounterparty = document.getElementById("efiskCounterparty");
+      const efiskResultLimit = document.getElementById("efiskResultLimit");
       const statusLine = document.getElementById("statusLine");
       const valueLine = document.getElementById("valueLine");
-      const summaryOk = document.getElementById("summaryOk");
-      const summaryRunId = document.getElementById("summaryRunId");
-      const summaryFinishedAt = document.getElementById("summaryFinishedAt");
-      const summaryCount = document.getElementById("summaryCount");
+      const summaryStatus = document.getElementById("summaryStatus");
+      const summaryTargets = document.getElementById("summaryTargets");
+      const summaryInvoices = document.getElementById("summaryInvoices");
+      const summaryNew = document.getElementById("summaryNew");
+      const summaryChanged = document.getElementById("summaryChanged");
+      const summaryCsv = document.getElementById("summaryCsv");
       const timeline = document.getElementById("timeline");
+      const targetsWrap = document.getElementById("targetsWrap");
       const tableWrap = document.getElementById("tableWrap");
       const rawJson = document.getElementById("rawJson");
       let latestResponse = null;
@@ -481,7 +616,8 @@ export function renderDemoPage(): string {
       }
 
       function setActionState(isRunning, hasResult) {
-        runButton.disabled = isRunning;
+        runPortfolioButton.disabled = isRunning;
+        runEfiskalizimiButton.disabled = isRunning;
         copyButton.disabled = !hasResult;
         csvButton.disabled = !hasResult;
       }
@@ -528,6 +664,46 @@ export function renderDemoPage(): string {
         timeline.appendChild(item);
       }
 
+      function renderTargets(targets) {
+        if (!Array.isArray(targets) || targets.length === 0) {
+          targetsWrap.innerHTML = '<p class="empty">No target results yet.</p>';
+          return;
+        }
+
+        targetsWrap.innerHTML = targets.map((targetResult) => {
+          const isOk = Boolean(targetResult.ok);
+          const baseline = isOk
+            ? targetResult.changes?.baseline === "first_run"
+              ? "first baseline"
+              : "compared with previous snapshot"
+            : "workflow failed";
+          const detail = isOk
+            ? \`\${targetResult.invoice_count} invoices. \${targetResult.changes.new_invoice_count} new, \${targetResult.changes.changed_invoice_count} changed, \${targetResult.changes.unchanged_invoice_count} unchanged.\`
+            : targetResult.error?.message || "Unknown workflow error";
+          const badges = isOk
+            ? [
+                \`<span class="badge">\${targetResult.target.portal}</span>\`,
+                \`<span class="badge">\${targetResult.target.id}</span>\`,
+                \`<span class="badge">\${baseline}</span>\`
+              ].join("")
+            : [
+                \`<span class="badge">\${targetResult.target.portal}</span>\`,
+                \`<span class="badge">\${targetResult.target.id}</span>\`
+              ].join("");
+
+          return \`
+            <article class="target-card">
+              <div class="target-top">
+                <p class="target-title">\${escapeHtml(targetResult.target.label)}</p>
+                <p class="target-status" data-state="\${isOk ? "ok" : "error"}">\${isOk ? "OK" : "Failed"}</p>
+              </div>
+              <div class="badge-row">\${badges}</div>
+              <p class="target-detail">\${escapeHtml(detail)}</p>
+            </article>
+          \`;
+        }).join("");
+      }
+
       function renderInvoices(invoices) {
         if (!Array.isArray(invoices) || invoices.length === 0) {
           tableWrap.innerHTML = '<p class="empty">No invoices returned.</p>';
@@ -535,24 +711,26 @@ export function renderDemoPage(): string {
         }
 
         const header = [
+          "Target",
+          "Change",
           "Status",
           "Invoice",
-          "Created",
-          "Due Date",
           "Client",
+          "Due Date",
           "Amount",
           "Balance"
         ];
 
         const rows = invoices.map((invoice) => \`
           <tr>
-            <td>\${invoice.status ?? ""}</td>
-            <td>\${invoice.invoice_number ?? ""}</td>
-            <td>\${invoice.created_date ?? ""}</td>
-            <td>\${invoice.due_date ?? ""}</td>
-            <td>\${invoice.client_name ?? ""}</td>
-            <td>\${invoice.amount_display ?? ""}</td>
-            <td>\${invoice.balance_display ?? ""}</td>
+            <td>\${escapeHtml(invoice.target_label ?? "")}</td>
+            <td><span class="pill" data-change="\${escapeHtml(invoice.change_type ?? "unchanged")}">\${escapeHtml(invoice.change_type ?? "unchanged")}</span></td>
+            <td>\${escapeHtml(invoice.status ?? "")}</td>
+            <td>\${escapeHtml(invoice.invoice_number ?? "")}</td>
+            <td>\${escapeHtml(invoice.client_name ?? "")}</td>
+            <td>\${escapeHtml(invoice.due_date ?? "")}</td>
+            <td>\${escapeHtml(invoice.amount_display ?? "")}</td>
+            <td>\${escapeHtml(invoice.balance_display ?? "")}</td>
           </tr>
         \`).join("");
 
@@ -568,14 +746,17 @@ export function renderDemoPage(): string {
 
       function renderResponse(data, durationMs) {
         latestResponse = data;
-        summaryOk.textContent = data.ok ? "OK" : "Failed";
-        summaryRunId.textContent = data.runId || "Missing";
-        summaryFinishedAt.textContent = data.finishedAt || "Missing";
-        summaryCount.textContent = String(data.result?.invoice_count ?? 0);
+        summaryStatus.textContent = data.ok ? "OK" : "Failed";
+        summaryTargets.textContent = \`\${data.result?.successful_target_count ?? 0}/\${data.result?.target_count ?? 0} succeeded\`;
+        summaryInvoices.textContent = String(data.result?.total_invoice_count ?? 0);
+        summaryNew.textContent = String(data.result?.total_new_invoice_count ?? 0);
+        summaryChanged.textContent = String(data.result?.total_changed_invoice_count ?? 0);
+        summaryCsv.textContent = data.result?.artifacts?.csv_path || "Missing";
+        renderTargets(data.result?.targets ?? []);
         renderInvoices(data.result?.invoices ?? []);
         rawJson.textContent = JSON.stringify(data, null, 2);
         setStatus("success", \`Success in \${formatDuration(durationMs)}\`);
-        setValueLine(\`\${data.result?.invoice_count ?? 0} invoices fetched in ~\${formatDuration(durationMs)} -> ready for Sheets/ERP/email summaries.\`);
+        setValueLine(data.result?.summary_text || "Portfolio run completed.");
         setActionState(false, true);
       }
 
@@ -596,6 +777,10 @@ export function renderDemoPage(): string {
         }
 
         const columns = [
+          "target_id",
+          "target_label",
+          "change_type",
+          "invoice_key",
           "status",
           "invoice_number",
           "created_date",
@@ -618,12 +803,59 @@ export function renderDemoPage(): string {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = "invoiceplane-invoices.csv";
+        link.download = "portalops-portfolio-summary.csv";
         link.click();
         URL.revokeObjectURL(url);
       }
 
-      async function runWorkflow() {
+      function resetSummaryState() {
+        summaryStatus.textContent = "Running";
+        summaryTargets.textContent = "Pending";
+        summaryInvoices.textContent = "…";
+        summaryNew.textContent = "…";
+        summaryChanged.textContent = "…";
+        summaryCsv.textContent = "Pending";
+      }
+
+      function buildEfiskalizimiOverrides() {
+        const payload = {};
+        const filterDateFrom = efiskDateFrom.value.trim();
+        const filterDateTo = efiskDateTo.value.trim();
+        const filterCounterpartyName = efiskCounterparty.value.trim();
+        const resultLimit = efiskResultLimit.value.trim();
+
+        if (filterDateFrom) {
+          payload.filterDateFrom = filterDateFrom;
+        }
+
+        if (filterDateTo) {
+          payload.filterDateTo = filterDateTo;
+        }
+
+        if (filterCounterpartyName) {
+          payload.filterCounterpartyName = filterCounterpartyName;
+        }
+
+        if (resultLimit) {
+          payload.resultLimit = Number(resultLimit);
+        }
+
+        return payload;
+      }
+
+      function buildStreamUrl(path, body) {
+        const url = new URL(path, window.location.origin);
+
+        Object.entries(body || {}).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== "") {
+            url.searchParams.set(key, String(value));
+          }
+        });
+
+        return url.pathname + url.search;
+      }
+
+      async function runWorkflow(options) {
         if (activeStream) {
           activeStream.close();
         }
@@ -631,26 +863,24 @@ export function renderDemoPage(): string {
         startedAtMs = Date.now();
         latestResponse = null;
         setActionState(true, false);
-        setStatus("loading", "Running workflow...");
-        summaryOk.textContent = "Running";
-        summaryRunId.textContent = "Pending";
-        summaryFinishedAt.textContent = "Pending";
-        summaryCount.textContent = "…";
-        setValueLine("Watching the authenticated browser work through the portal in real time.");
+        setStatus("loading", options.loadingStatus);
+        setValueLine(options.loadingDetail);
+        resetSummaryState();
         resetTimeline();
-        appendTimeline("Starting...", "Connecting to the local workflow stream.");
-        tableWrap.innerHTML = '<p class="empty">Waiting for workflow result...</p>';
+        renderTargets([]);
+        renderInvoices([]);
         rawJson.textContent = JSON.stringify({ ok: true, stream: "connected" }, null, 2);
+        appendTimeline("Starting...", options.startingDetail);
 
         if (!window.EventSource) {
           appendTimeline("Streaming unavailable", "Falling back to the sync endpoint.");
           try {
-            const response = await fetch("/local/workflows/invoiceplane", {
+            const response = await fetch(options.syncPath, {
               method: "POST",
               headers: {
                 "content-type": "application/json"
               },
-              body: JSON.stringify({ mode: "sync" })
+              body: JSON.stringify({ mode: "sync", ...(options.body || {}) })
             });
             const data = await response.json();
             if (!response.ok || !data.ok) {
@@ -660,19 +890,21 @@ export function renderDemoPage(): string {
             renderResponse(data, Date.now() - startedAtMs);
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
-            summaryOk.textContent = "Error";
-            summaryRunId.textContent = "Unavailable";
-            summaryFinishedAt.textContent = "Unavailable";
-            summaryCount.textContent = "0";
+            summaryStatus.textContent = "Error";
+            summaryTargets.textContent = "Unavailable";
+            summaryInvoices.textContent = "0";
+            summaryNew.textContent = "0";
+            summaryChanged.textContent = "0";
+            summaryCsv.textContent = "Unavailable";
             rawJson.textContent = JSON.stringify({ ok: false, error: { message } }, null, 2);
             setStatus("error", message);
-            setValueLine("The workflow failed before returning a normalized result.");
+            setValueLine(options.failureDetail);
             setActionState(false, false);
           }
           return;
         }
 
-        const stream = new EventSource("/local/workflows/invoiceplane/stream");
+        const stream = new EventSource(buildStreamUrl(options.streamPath, options.body));
         activeStream = stream;
 
         stream.addEventListener("timeline", (event) => {
@@ -689,15 +921,18 @@ export function renderDemoPage(): string {
 
         stream.addEventListener("workflow-error", (event) => {
           const data = JSON.parse(event.data);
-          summaryOk.textContent = "Error";
-          summaryRunId.textContent = "Unavailable";
-          summaryFinishedAt.textContent = "Unavailable";
-          summaryCount.textContent = "0";
-          tableWrap.innerHTML = '<p class="empty">No invoices returned.</p>';
+          summaryStatus.textContent = "Error";
+          summaryTargets.textContent = "Unavailable";
+          summaryInvoices.textContent = "0";
+          summaryNew.textContent = "0";
+          summaryChanged.textContent = "0";
+          summaryCsv.textContent = "Unavailable";
+          renderTargets([]);
+          renderInvoices([]);
           rawJson.textContent = JSON.stringify({ ok: false, error: data }, null, 2);
           appendTimeline("Error", data.message || "Workflow failed.");
           setStatus("error", data.message || "Workflow failed.");
-          setValueLine("The workflow failed before returning a normalized result.");
+          setValueLine(options.failureDetail);
           setActionState(false, false);
           stream.close();
           activeStream = null;
@@ -708,22 +943,54 @@ export function renderDemoPage(): string {
             return;
           }
 
-          summaryOk.textContent = "Error";
-          summaryRunId.textContent = "Unavailable";
-          summaryFinishedAt.textContent = "Unavailable";
-          summaryCount.textContent = "0";
-          tableWrap.innerHTML = '<p class="empty">No invoices returned.</p>';
+          summaryStatus.textContent = "Error";
+          summaryTargets.textContent = "Unavailable";
+          summaryInvoices.textContent = "0";
+          summaryNew.textContent = "0";
+          summaryChanged.textContent = "0";
+          summaryCsv.textContent = "Unavailable";
+          renderTargets([]);
+          renderInvoices([]);
           rawJson.textContent = JSON.stringify({ ok: false, error: { message: "Stream connection failed" } }, null, 2);
           appendTimeline("Error", "Stream connection failed.");
           setStatus("error", "Stream connection failed.");
-          setValueLine("The workflow did not complete over the local stream.");
+          setValueLine(options.streamFailureDetail);
           setActionState(false, false);
           stream.close();
           activeStream = null;
         };
       }
 
-      runButton.addEventListener("click", runWorkflow);
+      function runPortfolio() {
+        return runWorkflow({
+          syncPath: "/local/workflows/portfolio",
+          streamPath: "/local/workflows/portfolio/stream",
+          body: {},
+          loadingStatus: "Running portfolio workflow...",
+          loadingDetail: "Watching PortalOps check each configured target and build the daily summary.",
+          startingDetail: "Connecting to the local portfolio workflow stream.",
+          failureDetail: "The portfolio workflow failed before returning a normalized summary.",
+          streamFailureDetail: "The portfolio workflow did not complete over the local stream."
+        });
+      }
+
+      function runEfiskalizimi() {
+        const overrides = buildEfiskalizimiOverrides();
+
+        return runWorkflow({
+          syncPath: "/local/workflows/efiskalizimi",
+          streamPath: "/local/workflows/efiskalizimi/stream",
+          body: overrides,
+          loadingStatus: "Running eFiskalizimi workflow...",
+          loadingDetail: "Watching PortalOps log into eFiskalizimi, apply the selected filters, and extract invoice rows.",
+          startingDetail: "Connecting to the local eFiskalizimi workflow stream.",
+          failureDetail: "The eFiskalizimi workflow failed before returning a normalized summary.",
+          streamFailureDetail: "The eFiskalizimi workflow did not complete over the local stream."
+        });
+      }
+
+      runPortfolioButton.addEventListener("click", runPortfolio);
+      runEfiskalizimiButton.addEventListener("click", runEfiskalizimi);
       copyButton.addEventListener("click", copyJson);
       csvButton.addEventListener("click", downloadCsv);
     </script>

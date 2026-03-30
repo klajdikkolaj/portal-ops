@@ -1,10 +1,11 @@
 import { BrowserProfile, RunStatus, type RunStatus as RunStatusType } from "@tiny-fish/sdk";
 
-import { getEnv } from "../config/env.js";
+import { getPortalTargets, type InvoicePlaneTargetConfig } from "../config/env.js";
 import { getTinyFishClient } from "../lib/tinyfish.js";
 import {
   invoicePlaneRecentInvoicesPayloadSchema,
   type InvoicePlaneRecentInvoicesResult,
+  type InvoicePlaneTargetDescriptor,
   type InvoicePlaneWorkflowResult,
 } from "../types/invoiceplane.js";
 
@@ -16,12 +17,17 @@ export interface InvoicePlaneStreamHandlers {
 }
 
 export async function runInvoicePlaneWorkflow(): Promise<InvoicePlaneWorkflowResult> {
+  return runInvoicePlaneWorkflowForTarget(getPrimaryTarget());
+}
+
+export async function runInvoicePlaneWorkflowForTarget(
+  target: InvoicePlaneTargetConfig,
+): Promise<InvoicePlaneWorkflowResult> {
   const client = getTinyFishClient();
-  const env = getEnv();
 
   const response = await client.agent.run({
-    url: buildInvoicePlaneLoginUrl(env.INVOICEPLANE_BASE_URL),
-    goal: buildInvoicePlaneGoal(),
+    url: buildInvoicePlaneLoginUrl(target.baseUrl),
+    goal: buildInvoicePlaneGoal(target),
     browser_profile: BrowserProfile.STEALTH,
   });
 
@@ -37,19 +43,25 @@ export async function runInvoicePlaneWorkflow(): Promise<InvoicePlaneWorkflowRes
     ok: true,
     runId: response.run_id,
     finishedAt: response.finished_at,
-    result: parseInvoicePlaneRecentInvoicesResult(response.result, buildInvoicePlaneInvoicesUrl(env)),
+    result: parseInvoicePlaneRecentInvoicesResult(response.result, target),
   };
 }
 
 export async function streamInvoicePlaneWorkflow(
   handlers: InvoicePlaneStreamHandlers = {},
 ): Promise<InvoicePlaneWorkflowResult> {
+  return streamInvoicePlaneWorkflowForTarget(getPrimaryTarget(), handlers);
+}
+
+export async function streamInvoicePlaneWorkflowForTarget(
+  target: InvoicePlaneTargetConfig,
+  handlers: InvoicePlaneStreamHandlers = {},
+): Promise<InvoicePlaneWorkflowResult> {
   const client = getTinyFishClient();
-  const env = getEnv();
   const stream = await client.agent.stream(
     {
-      url: buildInvoicePlaneLoginUrl(env.INVOICEPLANE_BASE_URL),
-      goal: buildInvoicePlaneGoal(),
+      url: buildInvoicePlaneLoginUrl(target.baseUrl),
+      goal: buildInvoicePlaneGoal(target),
       browser_profile: BrowserProfile.STEALTH,
     },
     {
@@ -86,19 +98,36 @@ export async function streamInvoicePlaneWorkflow(
     ok: true,
     runId: run.run_id,
     finishedAt: run.finished_at,
-    result: parseInvoicePlaneRecentInvoicesResult(run.result, buildInvoicePlaneInvoicesUrl(env)),
+    result: parseInvoicePlaneRecentInvoicesResult(run.result, target),
   };
 }
 
-function buildInvoicePlaneGoal(): string {
-  const env = getEnv();
+export function toInvoicePlaneTargetDescriptor(target: InvoicePlaneTargetConfig): InvoicePlaneTargetDescriptor {
+  return {
+    id: target.id,
+    label: target.label,
+    portal: target.portal,
+    source_url: buildInvoicePlaneInvoicesUrl(target),
+  };
+}
 
+function getPrimaryTarget(): InvoicePlaneTargetConfig {
+  const target = getPortalTargets()[0];
+
+  if (!target || target.portal !== "invoiceplane") {
+    throw new Error("No invoice portal targets configured");
+  }
+
+  return target;
+}
+
+function buildInvoicePlaneGoal(target: InvoicePlaneTargetConfig): string {
   return [
-    "Log into the InvoicePlane demo portal.",
-    `Use username ${env.INVOICEPLANE_USERNAME} and password ${env.INVOICEPLANE_PASSWORD}.`,
-    `After login, navigate to ${buildInvoicePlaneInvoicesUrl(env)}.`,
+    `Log into the ${target.label} portal.`,
+    `Use username ${target.username} and password ${target.password}.`,
+    `After login, navigate to ${buildInvoicePlaneInvoicesUrl(target)}.`,
     "Wait for the main invoices table to load.",
-    `Extract the first ${env.INVOICEPLANE_RESULT_LIMIT} visible invoice rows from that invoices table.`,
+    `Extract the first ${target.resultLimit} visible invoice rows from that invoices table.`,
     'Return clean JSON only with this exact schema: {"invoices":[{"status":"","invoice_number":"","created_date":"","due_date":"","client_name":"","amount_display":"","balance_display":""}]}',
     "Do not include markdown, commentary, or extra keys.",
   ].join(" ");
@@ -108,8 +137,8 @@ function buildInvoicePlaneLoginUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/sessions/login`;
 }
 
-function buildInvoicePlaneInvoicesUrl(env: ReturnType<typeof getEnv>): string {
-  return `${env.INVOICEPLANE_BASE_URL.replace(/\/+$/, "")}${normalizePath(env.INVOICEPLANE_INVOICES_PATH)}`;
+function buildInvoicePlaneInvoicesUrl(target: InvoicePlaneTargetConfig): string {
+  return `${target.baseUrl.replace(/\/+$/, "")}${normalizePath(target.invoicesPath)}`;
 }
 
 function normalizePath(path: string): string {
@@ -118,13 +147,13 @@ function normalizePath(path: string): string {
 
 function parseInvoicePlaneRecentInvoicesResult(
   result: unknown,
-  sourceUrl: string,
+  target: InvoicePlaneTargetConfig,
 ): InvoicePlaneRecentInvoicesResult {
   const parsed = invoicePlaneRecentInvoicesPayloadSchema.parse(result);
 
   return {
-    portal: "invoiceplane-demo",
-    source_url: sourceUrl,
+    target: toInvoicePlaneTargetDescriptor(target),
+    source_url: buildInvoicePlaneInvoicesUrl(target),
     invoice_count: parsed.invoices.length,
     invoices: parsed.invoices,
   };

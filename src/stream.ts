@@ -1,4 +1,4 @@
-import { streamInvoicePlaneWorkflow } from "./workflows/fetchInvoicePlaneRecentInvoices.js";
+import { streamPortfolioWorkflow } from "./workflows/runPortfolioOps.js";
 
 function logProgress(message: string): void {
   // Keep machine-readable output on stdout and live debug events on stderr.
@@ -6,11 +6,10 @@ function logProgress(message: string): void {
 }
 
 async function main() {
-  const response = await streamInvoicePlaneWorkflow({
+  const response = await streamPortfolioWorkflow({
     onStarted: (runId) => logProgress(`[started] ${runId}`),
-    onStreamingUrl: (streamingUrl) => logProgress(`[watch] ${streamingUrl}`),
-    onProgress: (purpose) => logProgress(`[progress] ${purpose}`),
-    onComplete: (status) => logProgress(`[complete] ${status}`),
+    onProgress: (event) => logProgress(`[progress] ${event.label}${event.detail ? ` :: ${event.detail}` : ""}`),
+    onComplete: (result) => logProgress(`[complete] ${result.result.summary_text}`),
   });
 
   console.log(JSON.stringify(response, null, 2));

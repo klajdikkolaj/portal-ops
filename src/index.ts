@@ -1,7 +1,7 @@
-import { runInvoicePlaneWorkflow } from "./workflows/fetchInvoicePlaneRecentInvoices.js";
+import { runPortfolioWorkflow } from "./workflows/runPortfolioOps.js";
 
 async function main() {
-  const result = await runInvoicePlaneWorkflow();
+  const result = await runPortfolioWorkflow();
   console.log(JSON.stringify(result, null, 2));
 }
 

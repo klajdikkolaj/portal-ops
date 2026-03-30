@@ -3,16 +3,40 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { z } from "zod";
 
 import { getEnv } from "../config/env.js";
+import { type EfiskalizimiTargetOverrides, resolveEfiskalizimiTarget } from "../workflows/fetchEfiskalizimiInvoices.js";
+import {
+  streamPortfolioWorkflow,
+  runPortfolioWorkflow,
+  runPortfolioWorkflowForTargets,
+  streamPortfolioWorkflowForTargets,
+} from "../workflows/runPortfolioOps.js";
 import { renderDemoPage } from "./demoPage.js";
-import { runInvoicePlaneWorkflow, streamInvoicePlaneWorkflow } from "../workflows/fetchInvoicePlaneRecentInvoices.js";
 
-const requestSchema = z
+const portfolioRequestSchema = z
   .object({
     mode: z.literal("sync").optional(),
   })
   .strict();
 
+const dateFilterSchema = z.string().trim().regex(/^\d{2}\.\d{2}\.\d{4}$/, "Expected date format DD.MM.YYYY");
+
+const efiskalizimiRequestSchema = z
+  .object({
+    mode: z.literal("sync").optional(),
+    filterDateFrom: dateFilterSchema.optional(),
+    filterDateTo: dateFilterSchema.optional(),
+    filterCounterpartyName: z.string().trim().min(1).optional(),
+    resultLimit: z.coerce.number().int().min(1).max(20).optional(),
+  })
+  .strict();
+
 const MAX_BODY_BYTES = 16 * 1024;
+const PORTFOLIO_ROUTE = "/local/workflows/portfolio";
+const PORTFOLIO_STREAM_ROUTE = "/local/workflows/portfolio/stream";
+const EFISKALIZIMI_ROUTE = "/local/workflows/efiskalizimi";
+const EFISKALIZIMI_STREAM_ROUTE = "/local/workflows/efiskalizimi/stream";
+const LEGACY_SYNC_ROUTE = "/local/workflows/invoiceplane";
+const LEGACY_STREAM_ROUTE = "/local/workflows/invoiceplane/stream";
 
 async function main() {
   const env = getEnv();
@@ -35,9 +59,7 @@ async function main() {
   server.keepAliveTimeout = 5_000;
 
   server.listen(env.PORTAL_OPS_PORT, env.PORTAL_OPS_HOST, () => {
-    console.error(
-      `PortalOps local API listening on http://${env.PORTAL_OPS_HOST}:${env.PORTAL_OPS_PORT}/local/workflows/invoiceplane`,
-    );
+    console.error(`PortalOps local API listening on http://${env.PORTAL_OPS_HOST}:${env.PORTAL_OPS_PORT}${PORTFOLIO_ROUTE}`);
   });
 }
 
@@ -59,21 +81,28 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/local/workflows/invoiceplane/stream") {
-    await handleInvoicePlaneStream(res);
+  if (req.method === "GET" && isPortfolioStreamPath(url.pathname)) {
+    await handlePortfolioStream(res);
     return;
   }
 
-  if (url.pathname !== "/local/workflows/invoiceplane") {
+  if (req.method === "GET" && url.pathname === EFISKALIZIMI_STREAM_ROUTE) {
+    const overrides = parseEfiskalizimiOverridesFromQuery(url);
+    await handleEfiskalizimiStream(res, overrides);
+    return;
+  }
+
+  if (!isSyncPath(url.pathname)) {
     writeJson(res, 404, { ok: false, error: { message: "Not found" } });
     return;
   }
 
   if (req.method === "GET") {
+    const routeLabel = url.pathname === EFISKALIZIMI_ROUTE ? EFISKALIZIMI_ROUTE : PORTFOLIO_ROUTE;
     writeJson(res, 200, {
       ok: false,
       error: {
-        message: "This route expects POST. Open http://127.0.0.1:3010/ for the demo page or send a POST request with {\"mode\":\"sync\"}.",
+        message: `This route expects POST. Open http://127.0.0.1:3010/ for the demo page or send a POST request with {"mode":"sync"} to ${routeLabel}.`,
       },
     });
     return;
@@ -85,7 +114,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   const body = await readJsonBody(req);
-  const parsed = requestSchema.safeParse(body ?? {});
+  const schema = url.pathname === EFISKALIZIMI_ROUTE ? efiskalizimiRequestSchema : portfolioRequestSchema;
+  const parsed = schema.safeParse(body ?? {});
 
   if (!parsed.success) {
     writeJson(res, 400, {
@@ -97,12 +127,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  const result = await runInvoicePlaneWorkflow();
-
+  const result =
+    url.pathname === EFISKALIZIMI_ROUTE
+      ? await runPortfolioWorkflowForTargets([resolveEfiskalizimiTarget(toEfiskalizimiOverrides(parsed.data))])
+      : await runPortfolioWorkflow();
   writeJson(res, 200, result);
 }
 
-async function handleInvoicePlaneStream(res: ServerResponse): Promise<void> {
+async function handlePortfolioStream(res: ServerResponse): Promise<void> {
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -110,29 +142,45 @@ async function handleInvoicePlaneStream(res: ServerResponse): Promise<void> {
   res.flushHeaders?.();
 
   try {
-    const result = await streamInvoicePlaneWorkflow({
+    const result = await streamPortfolioWorkflow({
       onStarted: (runId) =>
         writeSse(res, "timeline", {
-          label: "Authenticated browser started",
+          label: "Portfolio run started",
           detail: `Run ${runId}`,
           timestamp: new Date().toISOString(),
         }),
-      onStreamingUrl: (streamingUrl) =>
+      onProgress: (event) => writeSse(res, "timeline", event),
+    });
+
+    writeSse(res, "result", result);
+  } catch (error) {
+    writeSse(res, "workflow-error", {
+      message: error instanceof Error ? error.message : "Unknown workflow error",
+    });
+  } finally {
+    res.end();
+  }
+}
+
+async function handleEfiskalizimiStream(
+  res: ServerResponse,
+  overrides: EfiskalizimiTargetOverrides,
+): Promise<void> {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  try {
+    const result = await streamPortfolioWorkflowForTargets([resolveEfiskalizimiTarget(overrides)], {
+      onStarted: (runId) =>
         writeSse(res, "timeline", {
-          label: "Live browser attached",
-          detail: streamingUrl,
+          label: "eFiskalizimi run started",
+          detail: `Run ${runId}`,
           timestamp: new Date().toISOString(),
         }),
-      onProgress: (purpose) =>
-        writeSse(res, "timeline", {
-          label: purpose,
-          timestamp: new Date().toISOString(),
-        }),
-      onComplete: (status) =>
-        writeSse(res, "timeline", {
-          label: status === "COMPLETED" ? "Done" : `Finished with ${status}`,
-          timestamp: new Date().toISOString(),
-        }),
+      onProgress: (event) => writeSse(res, "timeline", event),
     });
 
     writeSse(res, "result", result);
@@ -165,6 +213,72 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   }
 
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function isSyncPath(pathname: string): boolean {
+  return pathname === PORTFOLIO_ROUTE || pathname === LEGACY_SYNC_ROUTE || pathname === EFISKALIZIMI_ROUTE;
+}
+
+function isPortfolioStreamPath(pathname: string): boolean {
+  return pathname === PORTFOLIO_STREAM_ROUTE || pathname === LEGACY_STREAM_ROUTE;
+}
+
+function parseEfiskalizimiOverridesFromQuery(url: URL): EfiskalizimiTargetOverrides {
+  const raw: Record<string, string> = {};
+
+  const filterDateFrom = url.searchParams.get("filterDateFrom");
+  const filterDateTo = url.searchParams.get("filterDateTo");
+  const filterCounterpartyName = url.searchParams.get("filterCounterpartyName");
+  const resultLimit = url.searchParams.get("resultLimit");
+
+  if (filterDateFrom) {
+    raw.filterDateFrom = filterDateFrom;
+  }
+
+  if (filterDateTo) {
+    raw.filterDateTo = filterDateTo;
+  }
+
+  if (filterCounterpartyName) {
+    raw.filterCounterpartyName = filterCounterpartyName;
+  }
+
+  if (resultLimit) {
+    raw.resultLimit = resultLimit;
+  }
+
+  const parsed = efiskalizimiRequestSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const message = parsed.error.issues.map((issue) => issue.message).join("; ");
+    throw new Error(message);
+  }
+
+  return toEfiskalizimiOverrides(parsed.data);
+}
+
+function toEfiskalizimiOverrides(
+  input: z.infer<typeof efiskalizimiRequestSchema>,
+): EfiskalizimiTargetOverrides {
+  const overrides: EfiskalizimiTargetOverrides = {};
+
+  if (input.filterDateFrom) {
+    overrides.filterDateFrom = input.filterDateFrom;
+  }
+
+  if (input.filterDateTo) {
+    overrides.filterDateTo = input.filterDateTo;
+  }
+
+  if (input.filterCounterpartyName) {
+    overrides.filterCounterpartyName = input.filterCounterpartyName;
+  }
+
+  if (input.resultLimit) {
+    overrides.resultLimit = input.resultLimit;
+  }
+
+  return overrides;
 }
 
 function writeJson(res: ServerResponse, statusCode: number, payload: unknown): void {

@@ -4,10 +4,10 @@ export const invoicePlaneInvoiceSchema = z.object({
   status: z.string().trim().min(1),
   invoice_number: z.string().trim().min(1),
   created_date: z.string().trim().min(1),
-  due_date: z.string().trim().min(1),
+  due_date: z.string().trim(),
   client_name: z.string().trim().min(1),
   amount_display: z.string().trim().min(1),
-  balance_display: z.string().trim().min(1),
+  balance_display: z.string().trim(),
 });
 
 export const invoicePlaneRecentInvoicesPayloadSchema = z.object({
@@ -16,8 +16,15 @@ export const invoicePlaneRecentInvoicesPayloadSchema = z.object({
 
 export type InvoicePlaneInvoice = z.infer<typeof invoicePlaneInvoiceSchema>;
 
+export interface InvoicePlaneTargetDescriptor {
+  id: string;
+  label: string;
+  portal: "invoiceplane" | "efiskalizimi";
+  source_url: string;
+}
+
 export interface InvoicePlaneRecentInvoicesResult {
-  portal: "invoiceplane-demo";
+  target: InvoicePlaneTargetDescriptor;
   source_url: string;
   invoice_count: number;
   invoices: InvoicePlaneInvoice[];

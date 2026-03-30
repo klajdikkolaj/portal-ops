@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "workflow:efiskalizimi": "tsx src/efiskalizimi.ts",
+    "workflow:efiskalizimi:stream": "tsx src/efiskalizimi-stream.ts",
+    "workflow:portfolio": "tsx src/index.ts",
+    "workflow:portfolio:stream": "tsx src/stream.ts",
     "workflow:invoiceplane": "tsx src/index.ts",
     "workflow:invoiceplane:stream": "tsx src/stream.ts",
     "serve:local": "tsx src/http/server.ts",
