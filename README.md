@@ -49,6 +49,12 @@ Start the local server:
 npm run serve:local
 ```
 
+Open the demo page:
+
+```bash
+open http://127.0.0.1:3010/
+```
+
 Call the workflow:
 
 ```bash
@@ -56,6 +62,9 @@ curl -X POST http://127.0.0.1:3010/local/workflows/invoiceplane \
   -H 'content-type: application/json' \
   -d '{"mode":"sync"}'
 ```
+
+The same server now also serves a tiny demo page at [http://127.0.0.1:3010/](http://127.0.0.1:3010/) with one button that runs the workflow and renders the result.
+The page now uses the local streaming route to render a real timeline, a compact invoices table, copy/download helpers, and collapsed raw JSON by default.
 
 The packaging decision is documented in [`/Users/klajdikolaj/WebstormProjects/portal-ops/docs/packaging-decision.md`](/Users/klajdikolaj/WebstormProjects/portal-ops/docs/packaging-decision.md).
 

@@ -36,3 +36,18 @@ One workflow implementation, multiple entrypoints:
 - no public API surface
 - no HTTP streaming endpoint
 - no frontend dashboard
+
+## Small UI follow-up
+
+After the shared-core CLI plus HTTP wrapper was verified, the repo added one tiny demo page served from the same localhost-only server. This is intentionally not a frontend app. It is a single page that:
+
+- calls `POST /local/workflows/invoiceplane`
+- shows loading, success, and error states
+- renders the normalized workflow output
+
+It now also uses a thin local streaming route for timeline rendering while keeping the canonical workflow logic in the same core:
+
+- timeline events come from `GET /local/workflows/invoiceplane/stream`
+- final workflow execution still resolves to the same normalized result contract
+
+The page exists to prove the local HTTP wrapper is consumable by a human-facing surface without introducing a separate frontend architecture.

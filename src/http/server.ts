@@ -3,7 +3,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { z } from "zod";
 
 import { getEnv } from "../config/env.js";
-import { runInvoicePlaneWorkflow } from "../workflows/fetchInvoicePlaneRecentInvoices.js";
+import { renderDemoPage } from "./demoPage.js";
+import { runInvoicePlaneWorkflow, streamInvoicePlaneWorkflow } from "../workflows/fetchInvoicePlaneRecentInvoices.js";
 
 const requestSchema = z
   .object({
@@ -48,13 +49,33 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
   const url = new URL(req.url, "http://127.0.0.1");
 
+  if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/demo")) {
+    writeHtml(res, 200, renderDemoPage());
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/health") {
     writeJson(res, 200, { ok: true });
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/local/workflows/invoiceplane/stream") {
+    await handleInvoicePlaneStream(res);
+    return;
+  }
+
   if (url.pathname !== "/local/workflows/invoiceplane") {
     writeJson(res, 404, { ok: false, error: { message: "Not found" } });
+    return;
+  }
+
+  if (req.method === "GET") {
+    writeJson(res, 200, {
+      ok: false,
+      error: {
+        message: "This route expects POST. Open http://127.0.0.1:3010/ for the demo page or send a POST request with {\"mode\":\"sync\"}.",
+      },
+    });
     return;
   }
 
@@ -79,6 +100,49 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   const result = await runInvoicePlaneWorkflow();
 
   writeJson(res, 200, result);
+}
+
+async function handleInvoicePlaneStream(res: ServerResponse): Promise<void> {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  try {
+    const result = await streamInvoicePlaneWorkflow({
+      onStarted: (runId) =>
+        writeSse(res, "timeline", {
+          label: "Authenticated browser started",
+          detail: `Run ${runId}`,
+          timestamp: new Date().toISOString(),
+        }),
+      onStreamingUrl: (streamingUrl) =>
+        writeSse(res, "timeline", {
+          label: "Live browser attached",
+          detail: streamingUrl,
+          timestamp: new Date().toISOString(),
+        }),
+      onProgress: (purpose) =>
+        writeSse(res, "timeline", {
+          label: purpose,
+          timestamp: new Date().toISOString(),
+        }),
+      onComplete: (status) =>
+        writeSse(res, "timeline", {
+          label: status === "COMPLETED" ? "Done" : `Finished with ${status}`,
+          timestamp: new Date().toISOString(),
+        }),
+    });
+
+    writeSse(res, "result", result);
+  } catch (error) {
+    writeSse(res, "workflow-error", {
+      message: error instanceof Error ? error.message : "Unknown workflow error",
+    });
+  } finally {
+    res.end();
+  }
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -107,6 +171,17 @@ function writeJson(res: ServerResponse, statusCode: number, payload: unknown): v
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(payload, null, 2));
+}
+
+function writeHtml(res: ServerResponse, statusCode: number, html: string): void {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.end(html);
+}
+
+function writeSse(res: ServerResponse, eventName: string, payload: unknown): void {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
 main().catch((error) => {
