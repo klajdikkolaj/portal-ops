@@ -157,6 +157,58 @@ export function renderDemoPage(): string {
         color: var(--text);
       }
 
+      .modal-backdrop[hidden] {
+        display: none;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(17, 17, 17, 0.46);
+        backdrop-filter: blur(6px);
+        z-index: 20;
+      }
+
+      .modal-card {
+        width: min(100%, 460px);
+        display: grid;
+        gap: 16px;
+        padding: 22px;
+        border-radius: 24px;
+        background: var(--panel-strong);
+        border: 1px solid rgba(255, 255, 255, 0.72);
+        box-shadow: var(--shadow);
+      }
+
+      .modal-card h2 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+
+      .modal-copy,
+      .modal-note {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .modal-form {
+        display: grid;
+        gap: 12px;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding-top: 6px;
+      }
+
       button {
         border: 0;
         border-radius: 999px;
@@ -490,7 +542,7 @@ export function renderDemoPage(): string {
               </div>
             </div>
             <p class="hint">
-              Use the portfolio button for all configured targets, or run eFiskalizimi directly with optional date and counterparty filters.
+              Use the portfolio button for all configured targets, or open the eFiskalizimi modal to run it directly with saved credentials plus optional date and counterparty filters.
             </p>
             <p id="statusLine" class="status-line" data-state="idle">Idle.</p>
             <p id="valueLine" class="value-line">Run the portfolio workflow to see which invoice records are new, changed, or unchanged.</p>
@@ -581,7 +633,35 @@ export function renderDemoPage(): string {
       </section>
     </main>
 
+    <div id="authModalBackdrop" class="modal-backdrop" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+        <div>
+          <p class="section-label">eFiskalizimi Access</p>
+          <h2 id="authModalTitle">Enter portal credentials</h2>
+        </div>
+        <p class="modal-copy">
+          These credentials are stored only in this browser with local storage and are sent to the local PortalOps server only when you run the workflow.
+        </p>
+        <form id="authForm" class="modal-form">
+          <div class="field">
+            <label for="authPersonalId">NUIS / Personal ID</label>
+            <input id="authPersonalId" type="text" autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="authPassword">Password</label>
+            <input id="authPassword" type="password" autocomplete="current-password" required />
+          </div>
+          <p class="modal-note">Dates and counterparty filters still come from the form on the page.</p>
+          <div class="modal-actions">
+            <button id="authCancelButton" class="ghost-button" type="button">Cancel</button>
+            <button type="submit">Save and Run</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script>
+      const EFISK_AUTH_STORAGE_KEY = "portalops.efiskalizimi.auth.v1";
       const runPortfolioButton = document.getElementById("runPortfolioButton");
       const runEfiskalizimiButton = document.getElementById("runEfiskalizimiButton");
       const copyButton = document.getElementById("copyButton");
@@ -590,6 +670,11 @@ export function renderDemoPage(): string {
       const efiskDateTo = document.getElementById("efiskDateTo");
       const efiskCounterparty = document.getElementById("efiskCounterparty");
       const efiskResultLimit = document.getElementById("efiskResultLimit");
+      const authModalBackdrop = document.getElementById("authModalBackdrop");
+      const authForm = document.getElementById("authForm");
+      const authPersonalId = document.getElementById("authPersonalId");
+      const authPassword = document.getElementById("authPassword");
+      const authCancelButton = document.getElementById("authCancelButton");
       const statusLine = document.getElementById("statusLine");
       const valueLine = document.getElementById("valueLine");
       const summaryStatus = document.getElementById("summaryStatus");
@@ -760,6 +845,21 @@ export function renderDemoPage(): string {
         setActionState(false, true);
       }
 
+      function showWorkflowFailure(message, detail) {
+        summaryStatus.textContent = "Error";
+        summaryTargets.textContent = "Unavailable";
+        summaryInvoices.textContent = "0";
+        summaryNew.textContent = "0";
+        summaryChanged.textContent = "0";
+        summaryCsv.textContent = "Unavailable";
+        renderTargets([]);
+        renderInvoices([]);
+        rawJson.textContent = JSON.stringify({ ok: false, error: { message } }, null, 2);
+        setStatus("error", message);
+        setValueLine(detail);
+        setActionState(false, false);
+      }
+
       async function copyJson() {
         if (!latestResponse) {
           return;
@@ -817,6 +917,48 @@ export function renderDemoPage(): string {
         summaryCsv.textContent = "Pending";
       }
 
+      function readSavedEfiskalizimiAuth() {
+        try {
+          const raw = window.localStorage.getItem(EFISK_AUTH_STORAGE_KEY);
+
+          if (!raw) {
+            return { personalIdOrNuis: "", password: "" };
+          }
+
+          const parsed = JSON.parse(raw);
+
+          return {
+            personalIdOrNuis: typeof parsed.personalIdOrNuis === "string" ? parsed.personalIdOrNuis : "",
+            password: typeof parsed.password === "string" ? parsed.password : ""
+          };
+        } catch (_error) {
+          return { personalIdOrNuis: "", password: "" };
+        }
+      }
+
+      function persistEfiskalizimiAuth(auth) {
+        window.localStorage.setItem(EFISK_AUTH_STORAGE_KEY, JSON.stringify(auth));
+      }
+
+      function openEfiskalizimiAuthModal() {
+        const saved = readSavedEfiskalizimiAuth();
+        authPersonalId.value = saved.personalIdOrNuis;
+        authPassword.value = saved.password;
+        authModalBackdrop.hidden = false;
+        window.setTimeout(() => {
+          if (authPersonalId.value) {
+            authPassword.focus();
+            authPassword.select();
+          } else {
+            authPersonalId.focus();
+          }
+        }, 0);
+      }
+
+      function closeEfiskalizimiAuthModal() {
+        authModalBackdrop.hidden = true;
+      }
+
       function buildEfiskalizimiOverrides() {
         const payload = {};
         const filterDateFrom = efiskDateFrom.value.trim();
@@ -855,6 +997,144 @@ export function renderDemoPage(): string {
         return url.pathname + url.search;
       }
 
+      function delay(ms) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      async function runWorkflowSync(options) {
+        try {
+          const response = await fetch(options.syncPath, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: JSON.stringify({ mode: "sync", ...(options.body || {}) })
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data?.error?.message || "Workflow request failed");
+          }
+          appendTimeline("Done", options.syncSuccessDetail || "Sync request completed.");
+          renderResponse(data, Date.now() - startedAtMs);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          showWorkflowFailure(message, options.failureDetail);
+        }
+      }
+
+      async function runWorkflowPostStream(options) {
+        const controller = new AbortController();
+        activeStream = {
+          close() {
+            controller.abort();
+          }
+        };
+
+        try {
+          const response = await fetch(options.streamPath, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: JSON.stringify(options.body || {}),
+            signal: controller.signal
+          });
+
+          if (!response.ok) {
+            let message = "Workflow request failed";
+
+            try {
+              const errorPayload = await response.json();
+              message = errorPayload?.error?.message || message;
+            } catch (_error) {
+              message = await response.text() || message;
+            }
+
+            throw new Error(message);
+          }
+
+          if (!response.body) {
+            throw new Error("Streaming response body is unavailable");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          const handleEventBlock = (block) => {
+            if (!block.trim()) {
+              return;
+            }
+
+            let eventName = "message";
+            const dataLines = [];
+
+            block.split(/\\r?\\n/).forEach((line) => {
+              if (line.startsWith("event:")) {
+                eventName = line.slice(6).trim();
+              }
+
+              if (line.startsWith("data:")) {
+                dataLines.push(line.slice(5).trimStart());
+              }
+            });
+
+            if (!dataLines.length) {
+              return;
+            }
+
+            const payload = JSON.parse(dataLines.join("\\n"));
+
+            if (eventName === "timeline") {
+              appendTimeline(payload.label, payload.detail || "", payload.timestamp || new Date().toISOString());
+              return;
+            }
+
+            if (eventName === "result") {
+              renderResponse(payload, Date.now() - startedAtMs);
+              activeStream = null;
+              return;
+            }
+
+            if (eventName === "workflow-error") {
+              appendTimeline("Error", payload.message || "Workflow failed.");
+              showWorkflowFailure(payload.message || "Workflow failed.", options.failureDetail);
+              activeStream = null;
+            }
+          };
+
+          while (true) {
+            const { done, value } = await reader.read();
+
+            buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+            const blocks = buffer.split("\\n\\n");
+            buffer = blocks.pop() || "";
+            blocks.forEach(handleEventBlock);
+
+            if (done) {
+              break;
+            }
+          }
+
+          if (buffer.trim()) {
+            handleEventBlock(buffer);
+          }
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+
+          const message = error instanceof Error ? error.message : "Stream connection failed";
+          appendTimeline("Error", message);
+          showWorkflowFailure(message, options.streamFailureDetail);
+        } finally {
+          if (activeStream && typeof activeStream.close === "function") {
+            activeStream = null;
+          }
+        }
+      }
+
       async function runWorkflow(options) {
         if (activeStream) {
           activeStream.close();
@@ -872,35 +1152,24 @@ export function renderDemoPage(): string {
         rawJson.textContent = JSON.stringify({ ok: true, stream: "connected" }, null, 2);
         appendTimeline("Starting...", options.startingDetail);
 
+        if (options.forceSync) {
+          appendTimeline("Secure request", options.secureDetail || "Using a direct POST request so credentials stay out of the stream URL.");
+          await runWorkflowSync(options);
+          return;
+        }
+
+        if (options.streamMethod === "POST") {
+          appendTimeline("Secure request", options.secureDetail || "Using a streamed POST request so credentials stay out of the stream URL.");
+          await runWorkflowPostStream(options);
+          return;
+        }
+
         if (!window.EventSource) {
           appendTimeline("Streaming unavailable", "Falling back to the sync endpoint.");
-          try {
-            const response = await fetch(options.syncPath, {
-              method: "POST",
-              headers: {
-                "content-type": "application/json"
-              },
-              body: JSON.stringify({ mode: "sync", ...(options.body || {}) })
-            });
-            const data = await response.json();
-            if (!response.ok || !data.ok) {
-              throw new Error(data?.error?.message || "Workflow request failed");
-            }
-            appendTimeline("Done", "Sync fallback completed.");
-            renderResponse(data, Date.now() - startedAtMs);
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "Unknown error";
-            summaryStatus.textContent = "Error";
-            summaryTargets.textContent = "Unavailable";
-            summaryInvoices.textContent = "0";
-            summaryNew.textContent = "0";
-            summaryChanged.textContent = "0";
-            summaryCsv.textContent = "Unavailable";
-            rawJson.textContent = JSON.stringify({ ok: false, error: { message } }, null, 2);
-            setStatus("error", message);
-            setValueLine(options.failureDetail);
-            setActionState(false, false);
-          }
+          await runWorkflowSync({
+            ...options,
+            syncSuccessDetail: "Sync fallback completed."
+          });
           return;
         }
 
@@ -921,19 +1190,8 @@ export function renderDemoPage(): string {
 
         stream.addEventListener("workflow-error", (event) => {
           const data = JSON.parse(event.data);
-          summaryStatus.textContent = "Error";
-          summaryTargets.textContent = "Unavailable";
-          summaryInvoices.textContent = "0";
-          summaryNew.textContent = "0";
-          summaryChanged.textContent = "0";
-          summaryCsv.textContent = "Unavailable";
-          renderTargets([]);
-          renderInvoices([]);
-          rawJson.textContent = JSON.stringify({ ok: false, error: data }, null, 2);
           appendTimeline("Error", data.message || "Workflow failed.");
-          setStatus("error", data.message || "Workflow failed.");
-          setValueLine(options.failureDetail);
-          setActionState(false, false);
+          showWorkflowFailure(data.message || "Workflow failed.", options.failureDetail);
           stream.close();
           activeStream = null;
         });
@@ -943,19 +1201,8 @@ export function renderDemoPage(): string {
             return;
           }
 
-          summaryStatus.textContent = "Error";
-          summaryTargets.textContent = "Unavailable";
-          summaryInvoices.textContent = "0";
-          summaryNew.textContent = "0";
-          summaryChanged.textContent = "0";
-          summaryCsv.textContent = "Unavailable";
-          renderTargets([]);
-          renderInvoices([]);
-          rawJson.textContent = JSON.stringify({ ok: false, error: { message: "Stream connection failed" } }, null, 2);
           appendTimeline("Error", "Stream connection failed.");
-          setStatus("error", "Stream connection failed.");
-          setValueLine(options.streamFailureDetail);
-          setActionState(false, false);
+          showWorkflowFailure("Stream connection failed.", options.streamFailureDetail);
           stream.close();
           activeStream = null;
         };
@@ -974,25 +1221,143 @@ export function renderDemoPage(): string {
         });
       }
 
-      function runEfiskalizimi() {
-        const overrides = buildEfiskalizimiOverrides();
+      function submitEfiskalizimiAuth(event) {
+        event.preventDefault();
+        const personalIdOrNuis = authPersonalId.value.trim();
+        const password = authPassword.value;
 
-        return runWorkflow({
-          syncPath: "/local/workflows/efiskalizimi",
-          streamPath: "/local/workflows/efiskalizimi/stream",
-          body: overrides,
-          loadingStatus: "Running eFiskalizimi workflow...",
-          loadingDetail: "Watching PortalOps log into eFiskalizimi, apply the selected filters, and extract invoice rows.",
-          startingDetail: "Connecting to the local eFiskalizimi workflow stream.",
-          failureDetail: "The eFiskalizimi workflow failed before returning a normalized summary.",
-          streamFailureDetail: "The eFiskalizimi workflow did not complete over the local stream."
-        });
+        if (!personalIdOrNuis || !password) {
+          return;
+        }
+
+        const auth = { personalIdOrNuis, password };
+        persistEfiskalizimiAuth(auth);
+        closeEfiskalizimiAuthModal();
+        runEfiskalizimi(auth);
+      }
+
+      async function runEfiskalizimi(auth) {
+        const overrides = buildEfiskalizimiOverrides();
+        const body = { ...overrides, ...auth };
+
+        if (activeStream) {
+          activeStream.close();
+        }
+
+        startedAtMs = Date.now();
+        latestResponse = null;
+        setActionState(true, false);
+        setStatus("loading", "Running eFiskalizimi workflow...");
+        setValueLine("Submitting the saved eFiskalizimi credentials and selected filters to the local workflow.");
+        resetSummaryState();
+        resetTimeline();
+        renderTargets([]);
+        renderInvoices([]);
+        rawJson.textContent = JSON.stringify({ ok: true, run: "starting" }, null, 2);
+        appendTimeline("Starting...", "Preparing the secure eFiskalizimi request.");
+        appendTimeline("Secure request", "Credentials are sent over POST and persisted only in this browser.");
+
+        let cancelled = false;
+        activeStream = {
+          close() {
+            cancelled = true;
+          }
+        };
+
+        try {
+          const startResponse = await fetch("/local/workflows/efiskalizimi/start", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json"
+            },
+            body: JSON.stringify(body)
+          });
+
+          const startPayload = await startResponse.json();
+
+          if (!startResponse.ok || !startPayload.ok || !startPayload.runId) {
+            throw new Error(startPayload?.error?.message || "Failed to start eFiskalizimi run");
+          }
+
+          appendTimeline("Local run queued", "Tracking local run " + startPayload.runId + ".");
+
+          let seenEvents = 0;
+
+          while (!cancelled) {
+            const statusResponse = await fetch(\`/local/workflows/efiskalizimi/runs/\${encodeURIComponent(startPayload.runId)}\`);
+            const statusPayload = await statusResponse.json();
+
+            if (!statusResponse.ok || !statusPayload.ok || !statusPayload.run) {
+              throw new Error(statusPayload?.error?.message || "Failed to read eFiskalizimi run status");
+            }
+
+            const events = Array.isArray(statusPayload.run.events) ? statusPayload.run.events : [];
+
+            while (seenEvents < events.length) {
+              const event = events[seenEvents];
+              seenEvents += 1;
+              appendTimeline(event.label, event.detail || "", event.timestamp || new Date().toISOString());
+            }
+
+            rawJson.textContent = JSON.stringify(
+              statusPayload.run.result ?? {
+                ok: true,
+                localRunId: startPayload.runId,
+                status: statusPayload.run.status
+              },
+              null,
+              2
+            );
+
+            if (statusPayload.run.status === "completed" && statusPayload.run.result) {
+              activeStream = null;
+              renderResponse(statusPayload.run.result, Date.now() - startedAtMs);
+              return;
+            }
+
+            if (statusPayload.run.status === "failed") {
+              const message = statusPayload.run.error?.message || "The eFiskalizimi workflow failed.";
+              activeStream = null;
+              showWorkflowFailure(message, "The eFiskalizimi workflow failed before returning a normalized summary.");
+              return;
+            }
+
+            await delay(1200);
+          }
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+
+          const message = error instanceof Error ? error.message : "Failed to run eFiskalizimi workflow";
+          appendTimeline("Error", message);
+          showWorkflowFailure(message, "The eFiskalizimi workflow failed before returning a normalized summary.");
+        } finally {
+          if (cancelled) {
+            activeStream = null;
+            setStatus("idle", "Idle.");
+            setValueLine("Run the portfolio workflow to see which invoice records are new, changed, or unchanged.");
+            setActionState(false, Boolean(latestResponse));
+          }
+        }
       }
 
       runPortfolioButton.addEventListener("click", runPortfolio);
-      runEfiskalizimiButton.addEventListener("click", runEfiskalizimi);
+      runEfiskalizimiButton.addEventListener("click", openEfiskalizimiAuthModal);
       copyButton.addEventListener("click", copyJson);
       csvButton.addEventListener("click", downloadCsv);
+      authForm.addEventListener("submit", submitEfiskalizimiAuth);
+      authCancelButton.addEventListener("click", closeEfiskalizimiAuthModal);
+      authModalBackdrop.addEventListener("click", (event) => {
+        if (event.target === authModalBackdrop) {
+          closeEfiskalizimiAuthModal();
+        }
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !authModalBackdrop.hidden) {
+          closeEfiskalizimiAuthModal();
+        }
+      });
     </script>
   </body>
 </html>`;

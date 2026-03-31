@@ -17,6 +17,8 @@ export interface EfiskalizimiStreamHandlers {
 }
 
 export interface EfiskalizimiTargetOverrides {
+  personalIdOrNuis?: string;
+  password?: string;
   filterDateFrom?: string;
   filterDateTo?: string;
   filterCounterpartyName?: string;
@@ -122,14 +124,16 @@ export function resolveEfiskalizimiTarget(overrides: EfiskalizimiTargetOverrides
   const target = getPortalTargets().find(
     (candidate): candidate is EfiskalizimiTargetConfig => candidate.portal === "efiskalizimi",
   );
+  const env = getEnv();
 
   const baseTarget =
     target ??
     (() => {
-      const env = getEnv();
+      const personalIdOrNuis = overrides.personalIdOrNuis ?? env.EFISKALIZIMI_PERSONAL_ID_OR_NUIS;
+      const password = overrides.password ?? env.EFISKALIZIMI_PASSWORD;
 
-      if (!env.EFISKALIZIMI_PERSONAL_ID_OR_NUIS || !env.EFISKALIZIMI_PASSWORD) {
-        throw new Error("No eFiskalizimi target configured");
+      if (!personalIdOrNuis || !password) {
+        throw new Error("No eFiskalizimi target configured and no credentials were provided");
       }
 
       return {
@@ -137,8 +141,8 @@ export function resolveEfiskalizimiTarget(overrides: EfiskalizimiTargetOverrides
         label: "eFiskalizimi Self Care",
         portal: "efiskalizimi" as const,
         baseUrl: env.EFISKALIZIMI_BASE_URL,
-        personalIdOrNuis: env.EFISKALIZIMI_PERSONAL_ID_OR_NUIS,
-        password: env.EFISKALIZIMI_PASSWORD,
+        personalIdOrNuis,
+        password,
         bookLabel: env.EFISKALIZIMI_BOOK_LABEL,
         resultLimit: env.EFISKALIZIMI_RESULT_LIMIT,
         ...(env.EFISKALIZIMI_FILTER_DATE_FROM ? { filterDateFrom: env.EFISKALIZIMI_FILTER_DATE_FROM } : {}),
@@ -151,6 +155,8 @@ export function resolveEfiskalizimiTarget(overrides: EfiskalizimiTargetOverrides
 
   const resolvedTarget: EfiskalizimiTargetConfig = {
     ...baseTarget,
+    personalIdOrNuis: overrides.personalIdOrNuis ?? baseTarget.personalIdOrNuis,
+    password: overrides.password ?? baseTarget.password,
     ...(overrides.resultLimit ? { resultLimit: overrides.resultLimit } : {}),
   };
 

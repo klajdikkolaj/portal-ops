@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { z } from "zod";
@@ -23,6 +24,8 @@ const dateFilterSchema = z.string().trim().regex(/^\d{2}\.\d{2}\.\d{4}$/, "Expec
 const efiskalizimiRequestSchema = z
   .object({
     mode: z.literal("sync").optional(),
+    personalIdOrNuis: z.string().trim().min(1).optional(),
+    password: z.string().min(1).optional(),
     filterDateFrom: dateFilterSchema.optional(),
     filterDateTo: dateFilterSchema.optional(),
     filterCounterpartyName: z.string().trim().min(1).optional(),
@@ -35,8 +38,28 @@ const PORTFOLIO_ROUTE = "/local/workflows/portfolio";
 const PORTFOLIO_STREAM_ROUTE = "/local/workflows/portfolio/stream";
 const EFISKALIZIMI_ROUTE = "/local/workflows/efiskalizimi";
 const EFISKALIZIMI_STREAM_ROUTE = "/local/workflows/efiskalizimi/stream";
+const EFISKALIZIMI_START_ROUTE = "/local/workflows/efiskalizimi/start";
+const EFISKALIZIMI_RUNS_ROUTE_PREFIX = "/local/workflows/efiskalizimi/runs/";
 const LEGACY_SYNC_ROUTE = "/local/workflows/invoiceplane";
 const LEGACY_STREAM_ROUTE = "/local/workflows/invoiceplane/stream";
+
+interface LocalWorkflowTimelineEvent {
+  label: string;
+  detail?: string;
+  timestamp: string;
+}
+
+interface LocalWorkflowRunRecord {
+  id: string;
+  status: "running" | "completed" | "failed";
+  events: LocalWorkflowTimelineEvent[];
+  result?: Awaited<ReturnType<typeof runPortfolioWorkflowForTargets>>;
+  error?: {
+    message: string;
+  };
+}
+
+const efiskalizimiRuns = new Map<string, LocalWorkflowRunRecord>();
 
 async function main() {
   const env = getEnv();
@@ -89,6 +112,48 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (req.method === "GET" && url.pathname === EFISKALIZIMI_STREAM_ROUTE) {
     const overrides = parseEfiskalizimiOverridesFromQuery(url);
     await handleEfiskalizimiStream(res, overrides);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname.startsWith(EFISKALIZIMI_RUNS_ROUTE_PREFIX)) {
+    handleEfiskalizimiRunStatus(res, url.pathname.slice(EFISKALIZIMI_RUNS_ROUTE_PREFIX.length));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === EFISKALIZIMI_STREAM_ROUTE) {
+    const body = await readJsonBody(req);
+    const parsed = efiskalizimiRequestSchema.safeParse(body ?? {});
+
+    if (!parsed.success) {
+      writeJson(res, 400, {
+        ok: false,
+        error: {
+          message: parsed.error.issues.map((issue) => issue.message).join("; "),
+        },
+      });
+      return;
+    }
+
+    await handleEfiskalizimiStream(res, toEfiskalizimiOverrides(parsed.data));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === EFISKALIZIMI_START_ROUTE) {
+    const body = await readJsonBody(req);
+    const parsed = efiskalizimiRequestSchema.safeParse(body ?? {});
+
+    if (!parsed.success) {
+      writeJson(res, 400, {
+        ok: false,
+        error: {
+          message: parsed.error.issues.map((issue) => issue.message).join("; "),
+        },
+      });
+      return;
+    }
+
+    const runId = startEfiskalizimiRun(toEfiskalizimiOverrides(parsed.data));
+    writeJson(res, 202, { ok: true, runId });
     return;
   }
 
@@ -193,6 +258,63 @@ async function handleEfiskalizimiStream(
   }
 }
 
+function startEfiskalizimiRun(overrides: EfiskalizimiTargetOverrides): string {
+  const id = randomUUID();
+  const record: LocalWorkflowRunRecord = {
+    id,
+    status: "running",
+    events: [],
+  };
+
+  efiskalizimiRuns.set(id, record);
+
+  void (async () => {
+    try {
+      const result = await streamPortfolioWorkflowForTargets([resolveEfiskalizimiTarget(overrides)], {
+        onStarted: (runId) =>
+          appendEfiskalizimiRunEvent(record, {
+            label: "eFiskalizimi run started",
+            detail: `Run ${runId}`,
+            timestamp: new Date().toISOString(),
+          }),
+        onProgress: (event) => appendEfiskalizimiRunEvent(record, event),
+      });
+
+      record.status = "completed";
+      record.result = result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown workflow error";
+      appendEfiskalizimiRunEvent(record, {
+        label: "Error",
+        detail: message,
+        timestamp: new Date().toISOString(),
+      });
+      record.status = "failed";
+      record.error = { message };
+    }
+  })();
+
+  return id;
+}
+
+function appendEfiskalizimiRunEvent(record: LocalWorkflowRunRecord, event: LocalWorkflowTimelineEvent): void {
+  record.events.push(event);
+}
+
+function handleEfiskalizimiRunStatus(res: ServerResponse, runId: string): void {
+  const record = efiskalizimiRuns.get(runId);
+
+  if (!record) {
+    writeJson(res, 404, { ok: false, error: { message: "Run not found" } });
+    return;
+  }
+
+  writeJson(res, 200, {
+    ok: true,
+    run: record,
+  });
+}
+
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -264,6 +386,14 @@ function toEfiskalizimiOverrides(
 
   if (input.filterDateFrom) {
     overrides.filterDateFrom = input.filterDateFrom;
+  }
+
+  if (input.personalIdOrNuis) {
+    overrides.personalIdOrNuis = input.personalIdOrNuis;
+  }
+
+  if (input.password) {
+    overrides.password = input.password;
   }
 
   if (input.filterDateTo) {
